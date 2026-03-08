@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 @dataclass
 class CodeChunk:
     """Represents a chunk of code (class or function)."""
+
     name: str
     type: str  # 'class' | 'function' | 'async_function'
     source: str
@@ -50,7 +51,11 @@ class ChunkVisitor(ast.NodeVisitor):
                 return "\n".join(lines[node.lineno - 1 : node.end_lineno])
             return ""
 
-    def _visit_definition(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, node_type: str):
+    def _visit_definition(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+        node_type: str,
+    ):
         """Common logic for visiting classes and functions."""
         chunk = CodeChunk(
             name=node.name,
@@ -95,56 +100,58 @@ def parse_file(path: Path | str) -> Tuple[ast.Module, str]:
 
 def get_chunks(source: str, hierarchical: bool = True) -> List[Dict[str, Any]]:
     """Extract class and function chunks from Python source.
-    
+
     Args:
         source: The Python source code.
         hierarchical: If True, returns a tree-like structure. If False, returns a flat list.
-    
+
     Returns:
         A list of dictionaries representing code chunks.
     """
     visitor = ChunkVisitor(source)
     tree = ast.parse(source)
     visitor.visit(tree)
-    
+
     if hierarchical:
         return [c.to_dict() for c in visitor.chunks]
-    
+
     # Flatten the tree if requested
     flat_list = []
-    
+
     def _flatten(chunks: List[CodeChunk]):
         for c in chunks:
             # We copy but clear children for the flat representation
             data = asdict(c)
-            data['children'] = []
+            data["children"] = []
             flat_list.append(data)
             _flatten(c.children)
-            
+
     _flatten(visitor.chunks)
     return flat_list
 
 
-def get_chunks_from_file(path: Path | str, hierarchical: bool = True) -> List[Dict[str, Any]]:
+def get_chunks_from_file(
+    path: Path | str, hierarchical: bool = True
+) -> List[Dict[str, Any]]:
     """Extract class and function chunks from a Python file."""
     source = Path(path).read_text(encoding="utf-8")
     return get_chunks(source, hierarchical)
 
 
-if __name__ == "__main__":
-    import sys
-    import json
-    import os
-    from pathlib import Path
-    # Simple CLI for testing
-    # if len(sys.argv) > 1:
-    target_path = Path(__file__).parent / "extraction.py"
-    chunks = get_chunks_from_file(target_path)
-    print(json.dumps(chunks, indent=2))
-    # else:
-        # Self-test
-        # source = Path(__file__).read_text()
-        # chunks = get_chunks(source)
-        # print(f"Extracted {len(chunks)} top-level chunks from this file.")
-        # for chunk in chunks:
-        #     print(f"- {chunk['type'].capitalize()}: {chunk['name']} (Lines {chunk['start_line']}-{chunk['end_line']})")
+# if __name__ == "__main__":
+#     import sys
+#     import json
+#     import os
+#     from pathlib import Path
+#     # Simple CLI for testing
+#     # if len(sys.argv) > 1:
+#     target_path = Path(__file__).parent / "extraction.py"
+#     chunks = get_chunks_from_file(target_path)
+#     print(type(chunks))
+#     # else:
+#         # Self-test
+#         # source = Path(__file__).read_text()
+#         # chunks = get_chunks(source)
+#         # print(f"Extracted {len(chunks)} top-level chunks from this file.")
+#         # for chunk in chunks:
+#         #     print(f"- {chunk['type'].capitalize()}: {chunk['name']} (Lines {chunk['start_line']}-{chunk['end_line']})")
